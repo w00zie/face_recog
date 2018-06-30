@@ -36,7 +36,7 @@ __TODO__ : generate requirements.txt file for conda/pip
 
 ## How to run ##
 
-*	clone this repo : `git clone https://bgiov@bitbucket.org/ghembs/face_recog.git`
+*	clone this repo : `git clone https://github.com/w00zie/face_recog`
 *	run `main.py`
 *	once asked for config profile, select `0 - DEFAULT`, if any file needed for the execution is missing it'll be downloaded
 
