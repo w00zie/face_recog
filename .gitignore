@@ -1,0 +1,7 @@
+*.pyc
+/__pycache
+ak.png
+/vgg_face_matconvnet
+/201804*
+known.pickle
+.idea/
