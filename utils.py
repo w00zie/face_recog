@@ -79,6 +79,22 @@ class Configuration:
         self.config = configparser.ConfigParser()
 
     def check_requirements(self):
+        while self.threshold <= 0 or self.threshold >= 1:
+            try:
+                self.threshold = float(input("Please choose a threshold (0, 1):\n"))
+            except ValueError:
+                print("Please insert a valid value!\n")
+        while self.confidence < 0 or self.confidence > 10:
+            try:
+                self.confidence = float(input("Please choose a confidence [0, 10]:\n"))
+            except ValueError:
+                print("Please insert a valid value!\n")
+        while self.performance != 0 and self.performance != 1:
+            try:
+                self.performance = int(input("Do you want to increase performance (0 - no, 1 - yes):\n"))
+            except ValueError:
+                print("Please insert a valid value!\n")
+
         haar_url = 'https://raw.githubusercontent.com/opencv/opencv/master/data/' \
                    'haarcascades/haarcascade_frontalface_default.xml'
         vgg_url = 'http://www.vlfeat.org/matconvnet/models/vgg-face.mat'
@@ -89,37 +105,41 @@ class Configuration:
 
         message = 'Please insert path to pre-trained model, ' \
                   'leave empty to download default (VGG16):\n'
-        if self.vgg_path = '':
-            self.vgg_path = 'vgg_face.mat'
         self.vgg_path = check_file(self.vgg_path, message, vgg_url)
 
     def set_variables(self):
-        self.threshold = float(self.config[self.name]['threshold'])
-        self.confidence = float(self.config[self.name]['confidence'])
-        self.haar_path = self.config[self.name]['haar_path']
-        self.vgg_path = self.config[self.name]['vgg_path']
-
-        self.check_requirements()
-
-        if self.haar_path != self.config[self.name]['haar_path']:
+        try:
+            self.threshold = float(self.config[self.name]['threshold'])
+        except KeyError:
+            self.threshold = 0.35
+            self.config[self.name]['threshold'] = self.threshold
+        try:
+            self.confidence = float(self.config[self.name]['confidence'])
+        except KeyError:
+            self.confidence = 8.
+            self.config[self.name]['confidence'] = self.confidence
+        try:
+            self.haar_path = self.config[self.name]['haar_path']
+        except KeyError:
+            self.haar_path = "haarcascade_frontalface_default.xml"
             self.config[self.name]['haar_path'] = self.haar_path
-            with open(self.config_path, 'w') as file:
-                self.config.write(file)
-
-        if self.vgg_path != self.config[self.name]['vgg_path']:
+        try:
+            self.vgg_path = self.config[self.name]['vgg_path']
+        except KeyError:
+            self.vgg_path = "vgg-face.mat"
             self.config[self.name]['vgg_path'] = self.vgg_path
-            with open(self.config_path, 'w') as file:
-                self.config.write(file)
+        try:
+            self.video_path = self.config[self.name]['video_path']
+        except KeyError:
+            self.video_path = ""
+            self.config[self.name]['video_path'] = ""
+        try:
+            self.performance = int(self.config[self.name]['performance'])
+        except KeyError:
+            self.performance = 0
+            self.config[self.name]['performance'] = 0
 
-        self.video_path = self.config[self.name]['video_path']
-        self.performance = int(self.config[self.name]['performance'])
-
-    def write_config(self):
-        print("Creating a new configuration file...")
         self.check_requirements()
-
-        self.config_path = input('Insert your configuration file name:\n')
-        self.config_path = '{}.ini'.format(self.config_path)
 
         self.config[self.name] = {'threshold': self.threshold,
                                   'confidence': self.confidence,
@@ -128,7 +148,33 @@ class Configuration:
                                   'video_path': self.video_path,
                                   'performance': self.performance}
 
-        with open(self.config_path, 'a') as file:
+        with open(self.config_path, 'w') as file:
+            self.config.write(file)
+
+    def write_config(self, custom = False):
+        print("Creating a new configuration...")
+
+        self.check_requirements()
+
+        if not custom:
+            self.config_path = input('Insert your configuration file name:\n')
+            self.config_path = '{}.ini'.format(self.config_path)
+
+        name = ""
+
+        while not len(name):
+            name = input('Choose a profile name:\n')
+
+        self.name = name
+
+        self.config[self.name] = {'threshold': self.threshold,
+                                  'confidence': self.confidence,
+                                  'haar_path': self.haar_path,
+                                  'vgg_path': self.vgg_path,
+                                  'video_path': self.video_path,
+                                  'performance': self.performance}
+
+        with open(self.config_path, 'w') as file:
             self.config.write(file)
 
     def read_config(self):
@@ -146,21 +192,26 @@ class Configuration:
                 print("No configuration file found.")
 
             self.write_config()
-            self.config.read(self.config_path)
         else:
             self.config_path = conf_files[0]
             self.config.read(self.config_path)
             profiles = [profile for profile in self.config]
 
-            index = -1
-            while index not in range(len(profiles)):
-                for i in range(len(profiles)):
-                    print("{} - {}".format(i, profiles[i]))
-                try:
-                    index = int(input("Please select your profile:\n"))
-                except ValueError:
-                    print("Please insert a valid value!\n")
+            if not len(profiles):
+                self.write_config(True)
+            else:
+                index = -1
+                while index not in range(len(profiles) + 1):
+                    for i in range(len(profiles)):
+                        print("{} - {}".format(i, profiles[i]))
+                    print("{} - CUSTOM".format(len(profiles)))
+                    try:
+                        index = int(input("Please select your profile:\n"))
+                    except ValueError:
+                        print("Please insert a valid value!\n")
 
-            self.name = profiles[index]
-
-        self.set_variables()
+                if index == len(profiles):
+                    self.write_config(True)
+                else:
+                    self.name = profiles[index]
+                    self.set_variables()
