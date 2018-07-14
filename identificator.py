@@ -63,6 +63,8 @@ class Identificator:
         i = 0
         while i < self.cluster.node_idx:
             if isinstance(self.cluster.G.node[i]['name'], int):
+                print(self.cluster.G.node[i]['name'])
+                print(self.images)
                 cv2.imshow('face', self.images[self.cluster.G.node[i]['name']])
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
@@ -71,8 +73,8 @@ class Identificator:
                     self.cluster.add_name(name)
                     i += 1
                 else:
-                    self.cluster.clear_class(self.cluster.G.node[i]['name'])
                     self.images.pop(self.cluster.G.node[i]['name'])
+                    self.cluster.clear_class(self.cluster.G.node[i]['name'])
             else:
                 i += 1
 
