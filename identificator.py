@@ -99,6 +99,7 @@ class Identificator:
                     self.cluster.update_graph(desc = self.pred_img(crop_img)[0, :])
                     checked_faces += 1
                 try:
+                    # TODO find a way to access self.cluster.G.node[self.cluster.node_idx]['name']
                     if isinstance(self.cluster.G.node[self.cluster.node_idx]['name'], str):
                         cv2.putText(frame,
                                     "{}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
@@ -124,6 +125,7 @@ class Identificator:
                     self.cluster.update_graph(desc = self.pred_img(crop_img)[0, :])
                     checked_faces += 1
                 try:
+                    # TODO find a way to access self.cluster.G.node[self.cluster.node_idx]['name']
                     if isinstance(self.cluster.G.node[self.cluster.node_idx]['name'], str):
                         cv2.putText(frame,
                                     "Last recognized: {}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
