@@ -63,8 +63,6 @@ class Identificator:
         i = 0
         while i < self.cluster.node_idx:
             if isinstance(self.cluster.G.node[i]['name'], int):
-                print(self.cluster.G.node[i]['name'])
-                print(self.images)
                 cv2.imshow('face', self.images[self.cluster.G.node[i]['name']])
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
@@ -99,10 +97,9 @@ class Identificator:
                     self.cluster.update_graph(desc = self.pred_img(crop_img)[0, :])
                     checked_faces += 1
                 try:
-                    # TODO find a way to access self.cluster.G.node[self.cluster.node_idx]['name']
-                    if isinstance(self.cluster.G.node[self.cluster.node_idx]['name'], str):
+                    if isinstance(self.cluster.nodes[-1][1]['name'], str):
                         cv2.putText(frame,
-                                    "{}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "{}".format(self.cluster.nodes[-1][1]['name']),
                                     (x, y - 3),
                                     cv2.FONT_HERSHEY_SIMPLEX,
                                     0.6,
@@ -110,25 +107,24 @@ class Identificator:
                                     2)
                     else:
                         try:
-                            if self.cluster.people_idx[self.cluster.G.node[self.cluster.node_idx]['name']] == 1:
+                            if self.cluster.people_idx[self.cluster.nodes[-1][1]['name']] == 1:
                                 self.images.append(crop_img)
                         except TypeError:
                             pass
                         cv2.putText(frame,
-                                    "Person {}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "Person {}".format(self.cluster.nodes[-1][1]['name']),
                                     (x, y - 3),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
-                except KeyError:
+                except IndexError:
                     pass
             else:
                 if self.predict and conf[i] >= self.confidence:
                     self.cluster.update_graph(desc = self.pred_img(crop_img)[0, :])
                     checked_faces += 1
                 try:
-                    # TODO find a way to access self.cluster.G.node[self.cluster.node_idx]['name']
-                    if isinstance(self.cluster.G.node[self.cluster.node_idx]['name'], str):
+                    if isinstance(self.cluster.nodes[-1][1]['name'], str):
                         cv2.putText(frame,
-                                    "Last recognized: {}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "Last recognized: {}".format(self.cluster.nodes[-1][1]['name']),
                                     (50, 50),
                                     cv2.FONT_HERSHEY_SIMPLEX,
                                     0.6,
@@ -136,15 +132,15 @@ class Identificator:
                                     2)
                     else:
                         try:
-                            if self.cluster.people_idx[self.cluster.G.node[self.cluster.node_idx]['name']] == 1:
+                            if self.cluster.people_idx[self.cluster.nodes[-1][1]['name']] == 1:
                                 self.images.append(crop_img)
                         except TypeError:
                             pass
                         cv2.putText(frame,
-                                    "Last seen: Person {}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "Last seen: Person {}".format(self.cluster.nodes[-1][1]['name']),
                                     (50, 50),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
-                except KeyError:
+                except IndexError:
                     pass
 
                 if checked_faces == len(faces):

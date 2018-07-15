@@ -9,6 +9,7 @@ class Cluster:
     def __init__(self, thresh = 0.35):
         self.G = nx.Graph()
         self.names = []
+        self.nodes = []
         self.class_idx = 0
         self.node_idx = 0
         self.threshold = thresh
@@ -45,6 +46,10 @@ class Cluster:
                     self.G.node[node]['name'] = maxclass
                     self.clear_idx(oldclass)
 
+        self.nodes = []
+        for node in self.G.nodes.data():
+            self.nodes.append(node)
+
     def check_distances(self):
         for i in range(self.node_idx):
             distance = dcos(self.G.node[i]['desc'], self.G.node[self.node_idx]['desc'])
@@ -65,8 +70,11 @@ class Cluster:
         for i in range(self.node_idx):
             try:
                 self.G.node[i]['name'] = self.names[self.G.node[i]['name']]
-            except (IndexError, TypeError):
+            except IndexError:
                 self.G.node[i]['name'] -= 1
+                self.nodes[i][1]['name'] -= 1
+            except TypeError:
+                pass
 
     def check_index(self):
         for i in range(len(self.names)):
@@ -91,15 +99,6 @@ class Cluster:
     def clear_class(self, idx):
         node_to_remove = self.clear_idx(idx)
 
-        for i in range(self.node_idx):
-            if self.G.node[i]['name'] == idx:
-                node_to_remove.append(i)
-            elif isinstance(idx, int):
-                try:
-                    if self.G.node[i]['name'] > idx:
-                        self.G.node[i]['name'] = int(self.G.node[i]['name']) - 1
-                except (ValueError, TypeError):
-                    pass
         for node in node_to_remove:
             self.G.remove_node(node)
         del self.people_idx[idx]
@@ -121,6 +120,10 @@ class Cluster:
         self.node_idx = len(self.G.nodes.data())
         if isinstance(idx, int):
             self.class_idx -= 1
+
+        self.nodes = []
+        for node in self.G.nodes.data():
+            self.nodes.append(node)
 
     def update_graph(self, desc):
 
@@ -153,6 +156,8 @@ class Cluster:
             self.people_idx[maxclass] += 1
         else:
             self.people_idx[maxclass] = 1
+
+        self.nodes.append((self.node_idx, self.G.node[self.node_idx]))
 
         self.class_idx += 1
         self.node_idx += 1
