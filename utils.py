@@ -9,18 +9,17 @@ import os
 def load_resnet():
     from keras.applications.resnet50 import ResNet50
     realmodel = ResNet50(weights='imagenet')
-    print(realmodel.summary())
     realmodel = Model(input=realmodel.layers[0].input, output=realmodel.layers[-2].output)
     print(realmodel.summary())
     return realmodel
 
 
 def timing(func):
-    # @functools.wraps(func)
+
     def newfunc(*args, **kwargs):
         start = time.time()
         res = func(*args, **kwargs)
-        end = time.time() - start
+        end = round(time.time() - start, 3)
         print("function '{}' finished in {} s".format(
             func.__name__, end))
         return res
@@ -57,6 +56,12 @@ def check_file(path, message, url):
 
     return local_path
 
+
+def colors(n):
+    import random
+    color = ["#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)])
+             for i in range(n)]
+    return color
 
 class Configuration:
 
@@ -215,3 +220,4 @@ class Configuration:
                 else:
                     self.name = profiles[index]
                     self.set_variables()
+

@@ -10,12 +10,13 @@ class Identificator:
     def __init__(self, confidence, threshold, haar_path, vgg_path, performance = False,
                  video_path = None):
 
-        self.face_size = 224  # Size of the crop for the face
+        self.face_size = 224  # Size of the crop for the face - VGG16 needs 224
         self.predict = True  # True if faces need to be identified, False otherwise
         self.resnet = False  # Whether to use an alternative network
         self.threshold = threshold
         self.confidence = confidence
         self.performance = performance
+        self.images = []
 
         if self.resnet:
             self.__realmodel = utils.load_resnet()
@@ -32,10 +33,8 @@ class Identificator:
         try:
             self.cluster = utils.load_stuff("known.pickle")
         except IOError:
-            print("No known people")
+            print("No .pickle file")
             self.cluster = Cluster()
-
-        self.images = []
 
     @utils.timing
     def pred_img(self, crop_img):
@@ -44,9 +43,7 @@ class Identificator:
         return out
 
     def get_faces(self):
-        # Capture frame-by-frame
         ret, frame = self.__video_capture.read()
-        # frame_num = __video_capture.get(1)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces, cose, conf = self.faceCascade.detectMultiScale3(
             gray,
@@ -62,10 +59,9 @@ class Identificator:
     def save_faces(self):
         i = 0
         while i < self.cluster.node_idx:
-            if isinstance(self.cluster.G.node[i]['name'], int):
-                print(self.cluster.G.node[i]['name'])
-                print(self.images)
-                cv2.imshow('face', self.images[self.cluster.G.node[i]['name']])
+            identity = self.cluster.G.node[i]['name']
+            if isinstance(identity, int):
+                cv2.imshow('face', self.images[identity])
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
                 name = input('Choose a name for this person (leave empty to discard face):\n')
@@ -73,8 +69,9 @@ class Identificator:
                     self.cluster.add_name(name)
                     i += 1
                 else:
-                    self.images.pop(self.cluster.G.node[i]['name'])
-                    self.cluster.clear_class(self.cluster.G.node[i]['name'])
+                    id_to_delete = self.cluster.G.node[i]['name']
+                    self.images.pop(id_to_delete)
+                    self.cluster.clear_class(id_to_delete)
             else:
                 i += 1
 
@@ -90,58 +87,54 @@ class Identificator:
         if len(faces) < checked_faces:
             checked_faces = 0
         for i, (x, y, w, h) in enumerate(faces):
-            # old_seen = len(self.seen_people)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             crop_img = frame[y:y + h, x:x + w]
-
+            nclust = len(self.cluster.people_idx)
             if self.performance:
                 if conf[i] >= self.confidence / 2:
-                    self.cluster.update_graph(desc = self.pred_img(crop_img)[0, :])
+                    self.cluster.update_graph(desc=self.pred_img(crop_img)[0, :])
                     checked_faces += 1
                 try:
-                    # TODO find a way to access self.cluster.G.node[self.cluster.node_idx]['name']
-                    if isinstance(self.cluster.G.node[self.cluster.node_idx]['name'], str):
+                    index = self.cluster.node_idx - 1
+                    identity = self.cluster.G.node[index]['name']
+                    if isinstance(identity, str):
                         cv2.putText(frame,
-                                    "{}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "Last recognized: {}".format(identity),
                                     (x, y - 3),
                                     cv2.FONT_HERSHEY_SIMPLEX,
                                     0.6,
                                     (125, 0, 0),
                                     2)
                     else:
-                        try:
-                            if self.cluster.people_idx[self.cluster.G.node[self.cluster.node_idx]['name']] == 1:
-                                self.images.append(crop_img)
-                        except TypeError:
-                            pass
+                        if len(self.cluster.people_idx) > nclust:
+                            self.images.append(crop_img)
                         cv2.putText(frame,
-                                    "Person {}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "Last seen: Person {}".format(identity),
                                     (x, y - 3),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
                 except KeyError:
                     pass
             else:
                 if self.predict and conf[i] >= self.confidence:
-                    self.cluster.update_graph(desc = self.pred_img(crop_img)[0, :])
+                    self.cluster.update_graph(desc=self.pred_img(crop_img)[0, :])
                     checked_faces += 1
+                print("nodes in the graph = {}".format(self.cluster.G.nodes.data()))
                 try:
-                    # TODO find a way to access self.cluster.G.node[self.cluster.node_idx]['name']
-                    if isinstance(self.cluster.G.node[self.cluster.node_idx]['name'], str):
+                    index = self.cluster.node_idx - 1
+                    identity = self.cluster.G.node[index]['name']
+                    if isinstance(identity, str):
                         cv2.putText(frame,
-                                    "Last recognized: {}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "Last recognized: {}".format(identity),
                                     (50, 50),
                                     cv2.FONT_HERSHEY_SIMPLEX,
                                     0.6,
                                     (255, 255, 0),
                                     2)
                     else:
-                        try:
-                            if self.cluster.people_idx[self.cluster.G.node[self.cluster.node_idx]['name']] == 1:
-                                self.images.append(crop_img)
-                        except TypeError:
-                            pass
+                        if len(self.cluster.people_idx) > nclust:
+                            self.images.append(crop_img)
                         cv2.putText(frame,
-                                    "Last seen: Person {}".format(self.cluster.G.node[self.cluster.node_idx]['name']),
+                                    "Last seen: Person {}".format(identity),
                                     (50, 50),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
                 except KeyError:
@@ -157,18 +150,16 @@ class Identificator:
         checked_faces = 0
 
         while True:
-
             frame, faces, checked_faces = self.check_faces(old_len_faces, checked_faces)
-
-            # Display the resulting frame
             cv2.imshow('Video', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             old_len_faces = len(faces)
 
-        # When everything is done, release the capture
         self.__video_capture.release()
         cv2.destroyAllWindows()
+        self.cluster.plot_graph()
         if self.cluster.node_idx > 0:
             self.save_faces()
-        utils.pickle_stuff("known.pickle", self.cluster)
+        if self.cluster.node_idx > 0:
+            utils.pickle_stuff("known.pickle", self.cluster)

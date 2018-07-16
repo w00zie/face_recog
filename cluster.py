@@ -1,6 +1,7 @@
 import networkx as nx
 from random import shuffle
 from scipy.spatial.distance import cosine as dcos
+import matplotlib.pyplot as plt
 
 
 # TODO check a maximum number of descriptors to save
@@ -89,19 +90,17 @@ class Cluster:
         return node_to_remove
 
     def clear_class(self, idx):
-        node_to_remove = self.clear_idx(idx)
 
-        for i in range(self.node_idx):
-            if self.G.node[i]['name'] == idx:
-                node_to_remove.append(i)
-            elif isinstance(idx, int):
-                try:
-                    if self.G.node[i]['name'] > idx:
-                        self.G.node[i]['name'] = int(self.G.node[i]['name']) - 1
-                except (ValueError, TypeError):
-                    pass
-        for node in node_to_remove:
+        nodes_to_remove = self.clear_idx(idx)
+        print("nodes to be removed for this person = {}".format(nodes_to_remove))
+        for node in nodes_to_remove:
             self.G.remove_node(node)
+        new_dict = {}
+        j = 0
+        for x in self.people_idx.values():
+            new_dict[j] = x
+            j = j + 1
+        self.people_idx = new_dict
         del self.people_idx[idx]
 
         i = 0
@@ -121,6 +120,7 @@ class Cluster:
         self.node_idx = len(self.G.nodes.data())
         if isinstance(idx, int):
             self.class_idx -= 1
+        print(self.G.nodes.data())
 
     def update_graph(self, desc):
 
@@ -156,3 +156,19 @@ class Cluster:
 
         self.class_idx += 1
         self.node_idx += 1
+
+    def plot_graph(self):
+        from utils import colors
+
+        pos = nx.spring_layout(self.G)
+        colorlist = colors(len(self.people_idx))
+        plt.title("Connected components in the Chinese Whispers Graph")
+        wcc = nx.connected_component_subgraphs(self.G)
+        lab = ["Person {}".format(x) for x in self.people_idx.keys()]
+        for index, sg in enumerate(wcc):
+            nx.draw_networkx(sg, pos=pos, edge_color=colorlist[index], node_color=colorlist[index])
+        for i in range(len(lab)):
+            plt.scatter([], [], c=colorlist[i], alpha=0.3, s=100 ,label=lab[i])
+        plt.legend(title="Clusters")
+        plt.show()
+

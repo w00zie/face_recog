@@ -3,7 +3,7 @@ import os
 from identificator import Identificator
 from utils import Configuration
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # warning removal
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # tensorflow warning removal
 
 
 def main():
