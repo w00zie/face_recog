@@ -26,6 +26,11 @@ def timing(func):
         return res
     return newfunc
 
+def colors(n):
+    import random
+    color = ["#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)])
+             for i in range(n)]
+    return color
 
 def pickle_stuff(filename, stuff):
     save_stuff = open(filename, "wb")

@@ -1,7 +1,7 @@
 import networkx as nx
 from random import shuffle
 from scipy.spatial.distance import cosine as dcos
-
+import matplotlib.pyplot as plt
 
 # TODO check a maximum number of descriptors to save
 class Cluster:
@@ -86,10 +86,14 @@ class Cluster:
     def clear_idx(self, idx):
         node_to_remove = []
         for i in range(self.node_idx):
+            #print("i = ")
+            print("name = {}, idx = {}".format(self.G.node[i]['name'], idx))
             if self.G.node[i]['name'] == idx:
+                print("entro qui ed appendo")
                 node_to_remove.append(i)
             elif isinstance(idx, int):
                 try:
+                    print("no entro nell'elif")
                     if self.G.node[i]['name'] > idx:
                         self.G.node[i]['name'] = int(self.G.node[i]['name']) - 1
                 except (ValueError, TypeError):
@@ -97,8 +101,15 @@ class Cluster:
         return node_to_remove
 
     def clear_class(self, idx):
+        print("-"*32)
+        print("People idx = {}".format(self.people_idx))
         node_to_remove = self.clear_idx(idx)
-
+        print("For idx = {} got to remove {}".format(idx, node_to_remove))
+        if idx not in self.people_idx:
+            print("This value is wrong")
+            idx = idx+1
+            node_to_remove = self.clear_idx(idx)
+            print("For new idx = {} got to remove {}".format(idx, node_to_remove))
         for node in node_to_remove:
             self.G.remove_node(node)
         del self.people_idx[idx]
@@ -124,6 +135,8 @@ class Cluster:
         self.nodes = []
         for node in self.G.nodes.data():
             self.nodes.append(node)
+        print("People idx after the removal= {}".format(self.people_idx))
+        print("And graph = {}".format(self.G.nodes.data()))
 
     def update_graph(self, desc):
 
@@ -161,3 +174,18 @@ class Cluster:
 
         self.class_idx += 1
         self.node_idx += 1
+
+    def plot_graph(self):
+        from utils import colors
+
+        pos = nx.spring_layout(self.G)
+        colorlist = colors(len(self.people_idx))
+        plt.title("Connected components in the Chinese Whispers Graph")
+        wcc = nx.connected_component_subgraphs(self.G)
+        lab = ["Person {}".format(x) for x in self.people_idx.keys()]
+        for index, sg in enumerate(wcc):
+            nx.draw_networkx(sg, pos=pos, edge_color=colorlist[index], node_color=colorlist[index])
+        for i in range(len(lab)):
+            plt.scatter([], [], c=colorlist[i], alpha=0.3, s=100 ,label=lab[i])
+        plt.legend(title="Clusters")
+        plt.show()

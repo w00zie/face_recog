@@ -11,7 +11,7 @@ def main():
     config.read_config()
 
     identity = Identificator(config.confidence, config.threshold, config.haar_path,
-                             config.vgg_path, config.performance)
+                             config.vgg_path, config.performance, video_path=config.video_path)
     identity.loop_frames()
 
 
