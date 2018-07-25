@@ -17,6 +17,7 @@ class Identificator:
         self.confidence = confidence
         self.performance = performance
         self.images = []
+        self.is_first = True
 
         if self.resnet:
             self.__realmodel = utils.load_resnet()
@@ -32,6 +33,8 @@ class Identificator:
 
         try:
             self.cluster = utils.load_stuff("known.pickle")
+            #self.cluster.node_idx += 1
+            print("Loaded cluster\nCluster nodes = {}".format(self.cluster.G.nodes.data()))
         except IOError:
             print("No .pickle file")
             self.cluster = Cluster()
@@ -44,17 +47,21 @@ class Identificator:
 
     def get_faces(self):
         ret, frame = self.__video_capture.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces, cose, conf = self.faceCascade.detectMultiScale3(
-            gray,
-            scaleFactor = 1.2,
-            minNeighbors = 5,
-            minSize = (30, 30),
-            flags = cv2.CASCADE_SCALE_IMAGE,
-            outputRejectLevels = True
-        )
-
-        return frame, faces, conf
+        if ret:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces, _, conf = self.faceCascade.detectMultiScale3(
+                gray,
+                scaleFactor = 1.2,
+                minNeighbors = 5,
+                minSize = (30, 30),
+                flags = cv2.CASCADE_SCALE_IMAGE,
+                outputRejectLevels = True
+                )
+            return frame, faces, conf
+        else:
+            print("Video ended")
+            self.close_video()
+            exit()
 
     def save_faces(self):
         i = 0
@@ -67,6 +74,7 @@ class Identificator:
                 name = input('Choose a name for this person (leave empty to discard face):\n')
                 if len(name):
                     self.cluster.add_name(name)
+                    self.images.pop(identity)
                     i += 1
                 else:
                     id_to_delete = self.cluster.G.node[i]['name']
@@ -76,8 +84,8 @@ class Identificator:
                 i += 1
 
     def check_faces(self, old_len_faces, checked_faces):
-        frame, faces, conf = self.get_faces()
 
+        frame, faces, conf = self.get_faces()
         text = "Seen {} different people".format(len(self.cluster.people_idx))
         cv2.putText(frame, text, (60, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
@@ -118,11 +126,14 @@ class Identificator:
                 if self.predict and conf[i] >= self.confidence:
                     self.cluster.update_graph(desc=self.pred_img(crop_img)[0, :])
                     checked_faces += 1
-                print("nodes in the graph = {}".format(self.cluster.G.nodes.data()))
+                    self.is_first = False
+
                 try:
                     index = self.cluster.node_idx - 1
                     identity = self.cluster.G.node[index]['name']
                     if isinstance(identity, str):
+                        if self.is_first:
+                            identity = "?"
                         cv2.putText(frame,
                                     "Last recognized: {}".format(identity),
                                     (50, 50),
@@ -137,7 +148,8 @@ class Identificator:
                                     "Last seen: Person {}".format(identity),
                                     (50, 50),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
-                except KeyError:
+                except Exception as e:
+                    print("Got a {} exception".format(e))
                     pass
 
                 if checked_faces == len(faces):
@@ -156,10 +168,17 @@ class Identificator:
                 break
             old_len_faces = len(faces)
 
+        self.close_video()
+
+    def close_video(self):
+        save = True
         self.__video_capture.release()
         cv2.destroyAllWindows()
-        self.cluster.plot_graph()
-        if self.cluster.node_idx > 0:
+        if self.cluster.node_idx > 0 and save:
             self.save_faces()
         if self.cluster.node_idx > 0:
-            utils.pickle_stuff("known.pickle", self.cluster)
+            print("Graph = {}".format(self.cluster.G.nodes.data()))
+            self.cluster.names = [name for name, _ in self.cluster.people_idx.items()]
+            self.cluster.plot_graph()
+            if save:
+                utils.pickle_stuff("known.pickle", self.cluster)
