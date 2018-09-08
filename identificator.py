@@ -33,7 +33,7 @@ class Identificator:
 
         try:
             self.cluster = utils.load_stuff("known.pickle")
-            #self.cluster.node_idx += 1
+            # self.cluster.node_idx += 1
             print("Loaded cluster\nCluster nodes = {}".format(self.cluster.G.nodes.data()))
         except IOError:
             print("No .pickle file")
@@ -77,9 +77,8 @@ class Identificator:
                     self.images.pop(identity)
                     i += 1
                 else:
-                    id_to_delete = self.cluster.G.node[i]['name']
-                    self.images.pop(id_to_delete)
-                    self.cluster.clear_class(id_to_delete)
+                    self.images.pop(identity)
+                    self.cluster.clear_class(identity)
             else:
                 i += 1
 
@@ -148,8 +147,7 @@ class Identificator:
                                     "Last seen: Person {}".format(identity),
                                     (50, 50),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
-                except Exception as e:
-                    print("Got a {} exception".format(e))
+                except KeyError:
                     pass
 
                 if checked_faces == len(faces):
@@ -171,14 +169,11 @@ class Identificator:
         self.close_video()
 
     def close_video(self):
-        save = True
         self.__video_capture.release()
         cv2.destroyAllWindows()
-        if self.cluster.node_idx > 0 and save:
-            self.save_faces()
         if self.cluster.node_idx > 0:
+            self.save_faces()
             print("Graph = {}".format(self.cluster.G.nodes.data()))
-            self.cluster.names = [name for name, _ in self.cluster.people_idx.items()]
+            # self.cluster.names = [name for name, _ in self.cluster.people_idx.items()]
             self.cluster.plot_graph()
-            if save:
-                utils.pickle_stuff("known.pickle", self.cluster)
+            utils.pickle_stuff("known.pickle", self.cluster)

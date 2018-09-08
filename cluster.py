@@ -56,33 +56,35 @@ class Cluster:
 
     def add_name(self, name):
         if name not in self.names:
-            if len(self.names) != 0:
-                while len(self.names) != 0:
-                    self.names.pop()
             self.names.append(name)
-            self.check_names()
             self.check_index()
+            self.check_names()
             self.class_idx -= 1
         else:
             print('Name already in list, use a new one')
-        self.update_people()
 
     def check_names(self):
         for i in range(self.node_idx):
             idx = self.G.node[i]['name']
             if isinstance(idx, int):
-                try:
-                    self.G.node[i]['name'] = self.names[idx]
-                except (IndexError, TypeError):
+                if idx == 0:
+                    self.G.node[i]['name'] = self.names[-1]
+                else:
                     self.G.node[i]['name'] -= 1
 
     def check_index(self):
-        for i in range(len(self.names)):
-            try:
-                self.people_idx[self.names[i]] = self.people_idx.pop(i)
-            except KeyError:
-                print("KeyError occurred")
-                pass
+        try:
+            self.people_idx[self.names[-1]] = self.people_idx.pop(0)
+        except KeyError:
+            pass
+
+        new_indexes = []
+        for key in self.people_idx.items():
+            if isinstance(key[0], int):
+                new_indexes.append(key)
+        for indexes in new_indexes:
+            self.people_idx.pop(indexes[0])
+            self.people_idx[indexes[0]-1] = indexes[1]
 
     def clear_idx(self, idx):
         node_to_remove = []
@@ -90,22 +92,13 @@ class Cluster:
             if self.G.node[i]['name'] == idx:
                 node_to_remove.append(i)
             elif isinstance(idx, int):
-                try:
-                    if self.G.node[i]['name'] > idx:
-                        self.G.node[i]['name'] = int(self.G.node[i]['name']) - 1
-                except Exception as e:
-                    print("Got the {} except".format(e))
-                    pass
+                if isinstance(self.G.node[i]['name'], int):
+                    try:
+                        if self.G.node[i]['name'] > idx:
+                            self.G.node[i]['name'] = int(self.G.node[i]['name']) - 1
+                    except ValueError:
+                        pass
         return node_to_remove
-
-    def update_people(self):
-        new_dict = {}
-        for key, value in self.people_idx.items():
-            if isinstance(key, int):
-                new_dict[key-1] = value
-            elif isinstance(key, str):
-                new_dict[key] = value
-        self.people_idx = new_dict
 
     def clear_class(self, idx):
         nodes_to_remove = self.clear_idx(idx)
@@ -113,22 +106,26 @@ class Cluster:
         for node in nodes_to_remove:
             self.G.remove_node(node)
         del self.people_idx[idx]
-        self.update_people()
+        self.check_index()
+        self.node_idx = len(self.G.nodes.data())
         i = 0
+        nodes = []
         for node in self.G.nodes:
             if node != i:
-                self.G.add_node(i, name = self.G.node[node]['name'], desc = self.G.node[node]['desc'])
-                new_edges = []
-                for edge in self.G.edges:
-                    if edge[0] == node:
-                        new_edges.append((i, edge[1], {'weight': self.G[edge[0]][edge[1]]['weight']}))
-                    elif edge[1] == node:
-                        new_edges.append((edge[0], i, {'weight': self.G[edge[0]][edge[1]]['weight']}))
-                self.G.add_edges_from(new_edges)
-                self.G.remove_node(node)
+                nodes.append((i, node))
             i += 1
 
-        self.node_idx = len(self.G.nodes.data())
+        for node in nodes:
+            self.G.add_node(node[0], name = self.G.node[node[1]]['name'], desc = self.G.node[node[1]]['desc'])
+            new_edges = []
+            for edge in self.G.edges:
+                if edge[0] == node[1]:
+                    new_edges.append((node[0], edge[1], {'weight': self.G[edge[0]][edge[1]]['weight']}))
+                elif edge[1] == node[1]:
+                    new_edges.append((edge[0], node[0], {'weight': self.G[edge[0]][edge[1]]['weight']}))
+            self.G.add_edges_from(new_edges)
+            self.G.remove_node(node[1])
+
         if isinstance(idx, int):
             self.class_idx -= 1
 
