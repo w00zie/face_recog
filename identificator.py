@@ -37,7 +37,7 @@ class Identificator:
             print("Loaded cluster\nCluster nodes = {}".format(self.cluster.G.nodes.data()))
         except IOError:
             print("No .pickle file")
-            self.cluster = Cluster()
+            self.cluster = Cluster(self.threshold)
 
     @utils.timing
     def pred_img(self, crop_img):
@@ -98,29 +98,29 @@ class Identificator:
             crop_img = frame[y:y + h, x:x + w]
             nclust = len(self.cluster.people_idx)
             if self.performance:
-                if conf[i] >= self.confidence / 2:
+                if conf[i] >= self.confidence:
                     self.cluster.update_graph(desc=self.pred_img(crop_img)[0, :])
                     checked_faces += 1
-                try:
-                    index = self.cluster.node_idx - 1
-                    identity = self.cluster.G.node[index]['name']
-                    if isinstance(identity, str):
-                        cv2.putText(frame,
-                                    "Last recognized: {}".format(identity),
-                                    (x, y - 3),
-                                    cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.6,
-                                    (125, 0, 0),
-                                    2)
-                    else:
-                        if len(self.cluster.people_idx) > nclust:
-                            self.images.append(crop_img)
-                        cv2.putText(frame,
-                                    "Last seen: Person {}".format(identity),
-                                    (x, y - 3),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
-                except KeyError:
-                    pass
+                    try:
+                        index = self.cluster.node_idx - 1
+                        identity = self.cluster.G.node[index]['name']
+                        if isinstance(identity, str):
+                            cv2.putText(frame,
+                                        "{}".format(identity),
+                                        (x, y - 3),
+                                        cv2.FONT_HERSHEY_SIMPLEX,
+                                        0.6,
+                                        (125, 0, 0),
+                                        2)
+                        else:
+                            if len(self.cluster.people_idx) > nclust:
+                                self.images.append(crop_img)
+                            cv2.putText(frame,
+                                        "Person {}".format(identity),
+                                        (x, y - 3),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 125), 2)
+                    except KeyError:
+                        pass
             else:
                 if self.predict and conf[i] >= self.confidence:
                     self.cluster.update_graph(desc=self.pred_img(crop_img)[0, :])
@@ -175,5 +175,7 @@ class Identificator:
             self.save_faces()
             print("Graph = {}".format(self.cluster.G.nodes.data()))
             # self.cluster.names = [name for name, _ in self.cluster.people_idx.items()]
+            self.cluster.plot_graph()
+            self.cluster.chinese_whispers()
             self.cluster.plot_graph()
             utils.pickle_stuff("known.pickle", self.cluster)

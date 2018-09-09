@@ -9,13 +9,22 @@ import dlib
 
 class Cluster:
 
-    def __init__(self, thresh = 0.35):
+    def __init__(self, thresh = 0.3):
         self.G = nx.Graph()
         self.names = []
         self.class_idx = 0
         self.node_idx = 0
         self.threshold = thresh
         self.people_idx = {}
+
+    def clear_wrong_neighs(self, node, neighs):
+        edges_to_remove = []
+        for ne in neighs:
+            if self.G.node[node]['name'] != self.G.node[ne]['name']:
+                edges_to_remove.append((node, ne))
+
+        for i in range(len(edges_to_remove)):
+            self.G.remove_edge(edges_to_remove[i][0], edges_to_remove[i][1])
 
     def chinese_whispers(self):
         iterations = 10
@@ -44,15 +53,18 @@ class Cluster:
                         maxclass = c
                 # set the class of target node to the winning local class
                 if maxclass != self.G.node[node]['name']:
-                    oldclass = self.G.node[node]['name']
+                    # oldclass = self.G.node[node]['name']
                     self.G.node[node]['name'] = maxclass
-                    self.clear_idx(oldclass)
+                self.clear_wrong_neighs(node, neighs)
 
     def check_distances(self):
         for i in range(self.node_idx):
             distance = dcos(self.G.node[i]['desc'], self.G.node[self.node_idx]['desc'])
             if distance <= self.threshold:
                 self.G.add_edge(i, self.node_idx, weight = distance)
+
+    def get_distance(self, node0, node1):
+        return dcos(self.G.node[node0]['desc'], self.G.node[node1]['desc'])
 
     def add_name(self, name):
         if name not in self.names:
@@ -129,6 +141,13 @@ class Cluster:
         if isinstance(idx, int):
             self.class_idx -= 1
 
+    def clear_old(self, class_idx):
+        i = 0
+        while self.G.node[i]['name'] != class_idx:
+            i += 1
+        self.G.remove_node(i)
+        self.people_idx[class_idx] -= 1
+
     def update_graph(self, desc):
 
         self.G.add_node(self.node_idx, name = self.class_idx, desc = desc)
@@ -153,6 +172,8 @@ class Cluster:
 
         if class_idx in self.people_idx.keys():
             self.people_idx[class_idx] += 1
+            # if self.people_idx[class_idx] > 100:
+            #     self.clear_old(class_idx)
         else:
             self.people_idx[class_idx] = 1
 
@@ -170,7 +191,6 @@ class Cluster:
         for index, sg in enumerate(wcc):
             nx.draw_networkx(sg, pos=pos, edge_color=color_list[index], node_color=color_list[index])
         for i in range(len(lab)):
-            plt.scatter([], [], c=color_list[i], alpha=0.3, s=100 ,label=lab[i])
+            plt.scatter([], [], c=color_list[i], alpha=0.3, s=100, label=lab[i])
         plt.legend(title="Clusters")
         plt.show()
-
