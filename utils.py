@@ -115,14 +115,14 @@ class Configuration:
         config: configuration profile to write on file
     """
     def __init__(self,
-                 thresh = 0.35,
+                 thresh = 0.3,
                  conf = 8.,
                  performance = 0,
                  haar = 'haarcascade_frontalface_default.xml',
                  vgg = 'vgg-face.mat',
                  video = ""):
         """
-        :param thresh: desired threshold (default: 0.35)
+        :param thresh: desired threshold (default: 0.3)
         :param conf: desired confidence (default: 8.)
         :param performance: performance mode (default: no)
         :param haar: location of the detector (default: current folder)
@@ -150,9 +150,9 @@ class Configuration:
                 self.threshold = float(input("Please choose a threshold (0, 1):\n"))
             except ValueError:
                 print("Please insert a valid value!\n")
-        while self.confidence < 0 or self.confidence > 10:
+        while self.confidence < 6 or self.confidence > 10:
             try:
-                self.confidence = float(input("Please choose a confidence [0, 10]:\n"))
+                self.confidence = float(input("Please choose a confidence [6, 10]:\n"))
             except ValueError:
                 print("Please insert a valid value!\n")
         while self.performance != 0 and self.performance != 1:

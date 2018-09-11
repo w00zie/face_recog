@@ -18,6 +18,7 @@ class Identificator:
         self.performance = performance
         self.images = []
         self.is_first = True
+        self.chinese = False
 
         if self.resnet:
             self.__realmodel = utils.load_resnet()
@@ -41,6 +42,7 @@ class Identificator:
 
     @utils.timing
     def pred_img(self, crop_img):
+        self.chinese = False
         crop_img = cv2.resize(crop_img, (self.face_size, self.face_size))
         out = arch.my_pred(self.__realmodel, crop_img, transform = True)
         return out
@@ -161,6 +163,10 @@ class Identificator:
 
         while True:
             frame, faces, checked_faces = self.check_faces(old_len_faces, checked_faces)
+            if self.cluster.node_idx % 100 == 0 and self.cluster.node_idx > 0 and not self.chinese:
+                self.cluster.chinese_whispers()
+                self.cluster.plot_graph()
+                self.chinese = True
             cv2.imshow('Video', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -174,8 +180,6 @@ class Identificator:
         if self.cluster.node_idx > 0:
             self.save_faces()
             print("Graph = {}".format(self.cluster.G.nodes.data()))
-            # self.cluster.names = [name for name, _ in self.cluster.people_idx.items()]
-            self.cluster.plot_graph()
             self.cluster.chinese_whispers()
             self.cluster.plot_graph()
             utils.pickle_stuff("known.pickle", self.cluster)
