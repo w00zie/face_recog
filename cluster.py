@@ -15,82 +15,143 @@ class Cluster:
         self.node_idx = 0
         self.threshold = thresh
         self.people_idx = {}
+        self.max_faces = 100
+        self.new_subgraph = False
 
     def check_consistency(self, node, length):
-        if length < self.people_idx[self.G.node[node]['name']] / 5:
-            print(self.people_idx)
-            print(self.G.nodes.data())
+        if length < self.people_idx[self.G.node[node]['name']] / 10:
             self.people_idx[self.G.node[node]['name']] -= 1
             self.G.remove_node(node)
             self.adjust_indexes()
-            print(self.people_idx)
-            print(self.G.nodes.data())
             self.node_idx -= 1
+            if len(self.people_idx) != nx.number_connected_components(self.G):
+                self.new_subgraph = True
             return False
         else:
             return True
 
     def clear_wrong_neighs(self, node, neighs):
-        if self.check_consistency(node, len(neighs)):
-            edges_to_remove = []
-            for ne in neighs:
-                if self.G.node[node]['name'] != self.G.node[ne]['name']:
-                    edges_to_remove.append((node, ne))
+        edges_to_remove = []
+        for ne in neighs:
+            if self.G.node[node]['name'] != self.G.node[ne]['name']:
+                edges_to_remove.append((node, ne))
 
-            for i in range(len(edges_to_remove)):
-                self.G.remove_edge(edges_to_remove[i][0], edges_to_remove[i][1])
+        for i in range(len(edges_to_remove)):
+            self.G.remove_edge(edges_to_remove[i][0], edges_to_remove[i][1])
 
-    # TODO find the reason for gn to sometimes make a keyerror in line 56, probably related to the last else
+    def delete_subgraph(self, neighs):
+        nh = list(neighs)
+        subgraph_len_min = self.max_faces
+        component_to_delete = 0
+        while len(self.people_idx) < nx.number_connected_components(self.G):
+            for nodes in nh:
+                if len(nx.node_connected_component(self.G, nodes)) < subgraph_len_min:
+                    subgraph_len_min = len(nx.node_connected_component(self.G, nodes))
+                    component_to_delete = nodes
+            # neighs.pop(component_to_delete)
+            for node in nx.node_connected_component(self.G, component_to_delete):
+                try:
+                    nh.remove(node)
+                except ValueError:
+                    pass
+                self.people_idx[self.G.node[node]['name']] -= 1
+                self.G.node[node]['name'] = 'delete'
+
+            self.clear_class('delete')
+
+        if len(self.people_idx) > nx.number_connected_components(self.G):
+            components = list(nx.connected_components(self.G))
+            faces = list(self.people_idx.values())
+            i = 0
+            while i < len(components) and len(components[i]) == faces[i]:
+                i += 1
+
+            if i < len(components):
+                j = 0
+                if i == 0:
+                    j = 1
+
+                while j < len(faces) and len(components[i]) - faces[i] != faces[j]:
+                    j += 1
+                    if j == i:
+                        j += 1
+
+                if j == len(faces) or faces[i] < faces[j]:
+                    nodes_to_remove = []
+                    for k in range(self.node_idx):
+                        if self.G.node[k]['name'] == list(self.people_idx.keys())[i]:
+                            nodes_to_remove.append(k)
+                else:
+                    nodes_to_remove = []
+                    for k in range(self.node_idx):
+                        if self.G.node[k]['name'] == list(self.people_idx.keys())[j]:
+                            nodes_to_remove.append(k)
+                for node in nodes_to_remove:
+                    self.people_idx[self.G.node[node]['name']] -= 1
+                    self.G.remove_node(node)
+
+                self.adjust_indexes()
+                self.node_idx = len(self.G.nodes.data())
+
+        self.new_subgraph = False
+
     @timing
     def chinese_whispers(self):
         iterations = 10
-        for z in range(0, iterations):
+        deleted = []
+        for z in range(iterations):
             gn = [i for i in range(self.node_idx)]
-            print(gn)
             # I randomize the nodes to give me an arbitrary start point
             shuffle(gn)
-            for node in gn:
-                try:
-                    neighs = self.G.adj[node]
-                    if self.check_consistency(node, len(neighs)):
-                        classes = {}
-                        # do an inventory of the given nodes neighbours and edge weights
-                        for ne in neighs:
-                            if isinstance(ne, int):
-                                if self.G.node[ne]['name'] in classes:
-                                    classes[self.G.node[ne]['name']] += self.G[node][ne]['weight']
-                                else:
-                                    classes[self.G.node[ne]['name']] = self.G[node][ne]['weight']
-                        # find the class with the highest edge weight sum
-                        max = 0
-                        maxclass = self.G.node[node]['name']
-                        for c in classes:
-                            if classes[c] > max:
-                                max = classes[c]
-                                maxclass = c
-                        # set the class of target node to the winning local class
-                        if maxclass != self.G.node[node]['name']:
-                            oldclass = self.G.node[node]['name']
-                            self.people_idx[oldclass] -= 1
-                            self.G.node[node]['name'] = maxclass
-                            self.people_idx[maxclass] += 1
-                        self.clear_wrong_neighs(node, neighs)
+            i = 0
+            g_modified = False
+            while i < len(gn) and not g_modified:
+                neighs = self.G.adj[gn[i]]
+                if self.check_consistency(gn[i], len(neighs)):
+                    classes = {}
+                    # do an inventory of the given nodes neighbours and edge weights
+                    for ne in neighs:
+                        if isinstance(ne, int):
+                            if self.G.node[ne]['name'] in classes:
+                                classes[self.G.node[ne]['name']] += self.G[gn[i]][ne]['weight']
+                            else:
+                                classes[self.G.node[ne]['name']] = self.G[gn[i]][ne]['weight']
+                    # find the class with the highest edge weight sum
+                    max = 0
+                    maxclass = self.G.node[gn[i]]['name']
+                    for c in classes:
+                        if classes[c] > max:
+                            max = classes[c]
+                            maxclass = c
+                    # set the class of target node to the winning local class
+                    if maxclass != self.G.node[gn[i]]['name']:
+                        oldclass = self.G.node[gn[i]]['name']
+                        self.people_idx[oldclass] -= 1
+                        self.G.node[gn[i]]['name'] = maxclass
+                        self.people_idx[maxclass] += 1
+                    if self.check_consistency(gn[i], len(neighs)):
+                        self.clear_wrong_neighs(gn[i], neighs)
                     else:
-                        for i in range(len(gn)):
-                            if gn[i] > node:
-                                gn[i] -= 1
+                        if self.new_subgraph:
+                            self.delete_subgraph(neighs)
+                        g_modified = True
+                else:
+                    if self.new_subgraph:
+                        self.delete_subgraph(neighs)
+                    g_modified = True
 
-                    empty_index = [x for x in self.people_idx if not self.people_idx[x]]
+                i += 1
 
-                    for person in empty_index:
-                        self.clear_class(person)
+            empty = self.clear_people()
+            for x in empty:
+                deleted.append(x)
 
-                except KeyError as e:
-                    print('key: ', e)
+        return deleted
 
     def check_distances(self):
         for i in range(self.node_idx):
             distance = dcos(self.G.node[i]['desc'], self.G.node[self.node_idx]['desc'])
+            # distance = abs(self.G.node[i]['desc'] - self.G.node[self.node_idx]['desc'])
             if distance <= self.threshold:
                 self.G.add_edge(i, self.node_idx, weight = distance)
 
@@ -98,9 +159,12 @@ class Cluster:
         return dcos(self.G.node[node0]['desc'], self.G.node[node1]['desc'])
 
     def clear_people(self):
-        idx_to_delete = [x for x in self.people_idx if x not in self.names]
-        for idx in idx_to_delete:
-            del self.people_idx[idx]
+        empty_index = [x for x in self.people_idx if not self.people_idx[x]]
+
+        for person in empty_index:
+            self.clear_class(person)
+
+        return empty_index
 
     def add_name(self, name):
         if name not in self.names:
@@ -135,8 +199,6 @@ class Cluster:
             if indexes[0] != 0 and indexes[0] - 1 not in self.people_idx:
                 self.people_idx.pop(indexes[0])
                 self.people_idx[indexes[0]-1] = indexes[1]
-
-        print(self.people_idx)
 
     def clear_idx(self, idx):
         node_to_remove = []
@@ -176,7 +238,10 @@ class Cluster:
 
         for node in nodes_to_remove:
             self.G.remove_node(node)
-        del self.people_idx[idx]
+        try:
+            del self.people_idx[idx]
+        except KeyError:
+            pass
         self.check_index(False)
         self.node_idx = len(self.G.nodes.data())
 
@@ -218,7 +283,7 @@ class Cluster:
 
         if class_idx in self.people_idx.keys():
             self.people_idx[class_idx] += 1
-            if self.people_idx[class_idx] > 100:
+            if self.people_idx[class_idx] > self.max_faces:
                 self.clear_old(class_idx)
         else:
             self.people_idx[class_idx] = 1
@@ -226,7 +291,6 @@ class Cluster:
         self.class_idx += 1
         self.node_idx += 1
 
-    # TODO do something for the occurrence of a new person making 2 subgraphs after a severed connection
     # preceding problem makes a indexerror in color_list
     def plot_graph(self):
         from utils import colors

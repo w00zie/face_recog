@@ -18,7 +18,7 @@ class Identificator:
         self.performance = performance
         self.images = []
         self.is_first = True
-        self.chinese = False
+        self.chinese = 1
 
         if self.resnet:
             self.__realmodel = utils.load_resnet()
@@ -42,7 +42,6 @@ class Identificator:
 
     @utils.timing
     def pred_img(self, crop_img):
-        self.chinese = False
         crop_img = cv2.resize(crop_img, (self.face_size, self.face_size))
         out = arch.my_pred(self.__realmodel, crop_img, transform = True)
         return out
@@ -163,10 +162,17 @@ class Identificator:
 
         while True:
             frame, faces, checked_faces = self.check_faces(old_len_faces, checked_faces)
-            if self.cluster.node_idx % 100 == 0 and self.cluster.node_idx > 0 and not self.chinese:
-                self.cluster.chinese_whispers()
+            if self.cluster.node_idx > 0 and self.cluster.node_idx % (self.chinese * 100) == 0:
+                deleted = self.cluster.chinese_whispers()
                 self.cluster.plot_graph()
-                self.chinese = True
+                self.chinese += 1
+                try:
+                    if len(deleted):
+                        for i in deleted:
+                            self.images.pop(i)
+                except TypeError:
+                    pass
+
             cv2.imshow('Video', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -177,8 +183,8 @@ class Identificator:
     def close_video(self):
         self.__video_capture.release()
         cv2.destroyAllWindows()
+        self.save_faces()
         if self.cluster.node_idx > 0:
-            self.save_faces()
             print("Graph = {}".format(self.cluster.G.nodes.data()))
             self.cluster.chinese_whispers()
             self.cluster.plot_graph()
