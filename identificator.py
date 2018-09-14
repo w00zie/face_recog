@@ -183,6 +183,7 @@ class Identificator:
     def close_video(self):
         self.__video_capture.release()
         cv2.destroyAllWindows()
+        self.cluster.chinese_whispers()
         self.save_faces()
         if self.cluster.node_idx > 0:
             print("Graph = {}".format(self.cluster.G.nodes.data()))

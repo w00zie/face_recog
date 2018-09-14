@@ -17,6 +17,104 @@ class Cluster:
         self.people_idx = {}
         self.max_faces = 100
 
+# ===================================== GENERAL UTILITIES =========================================
+
+    def adjust_indexes(self):
+        """
+        This function restores the continuity of the nodes in the graph, after
+        one or more has been deleted.
+        :return: none
+        """
+        i = 0
+        nodes = []
+        for node in self.G.nodes:
+            if node != i:
+                nodes.append((i, node))
+            i += 1
+
+        # restore nodes
+        for node in nodes:
+            self.G.add_node(node[0], name = self.G.node[node[1]]['name'], desc = self.G.node[node[1]]['desc'])
+            new_edges = []
+            # restore edges
+            for edge in self.G.edges:
+                if edge[0] == node[1]:
+                    new_edges.append((node[0], edge[1], {'weight': self.G[edge[0]][edge[1]]['weight']}))
+                elif edge[1] == node[1]:
+                    new_edges.append((edge[0], node[0], {'weight': self.G[edge[0]][edge[1]]['weight']}))
+            self.G.add_edges_from(new_edges)
+            self.G.remove_node(node[1])
+
+    def check_index(self, newname):
+        """
+        This function restores the continuity of the identities, in case of a new
+        identity been added to the list it assigns the corresponding face count,
+        otherwise it just moves back the indexes
+        :param newname: bool to notify if the last name in name list is of
+        recent addition
+        :return: none
+        """
+        if newname:
+            try:
+                self.people_idx[self.names[-1]] = self.people_idx.pop(0)
+            except KeyError:
+                pass
+
+        new_indexes = []
+        for key in self.people_idx.items():
+            if isinstance(key[0], int):
+                new_indexes.append(key)
+        for indexes in new_indexes:
+            if indexes[0] != 0 and indexes[0] - 1 not in self.people_idx:
+                self.people_idx.pop(indexes[0])
+                self.people_idx[indexes[0]-1] = indexes[1]
+
+    def clear_idx(self, idx):
+        """
+        This function selects all nodes of a given index for deletion, adjusting
+        at the same time the index of the other nodes
+        :param idx: the index to remove
+        :return: a list of nodes of the given index
+        """
+        node_to_remove = []
+        for i in range(self.node_idx):
+            if self.G.node[i]['name'] == idx:
+                node_to_remove.append(i)
+            elif isinstance(idx, int):
+                if isinstance(self.G.node[i]['name'], int):
+                    try:
+                        if self.G.node[i]['name'] > idx:
+                            self.G.node[i]['name'] = int(self.G.node[i]['name']) - 1
+                    except ValueError:
+                        pass
+        return node_to_remove
+
+    def clear_class(self, idx):
+        """
+        This function deletes a class from the dictionary, along with all the
+        corresponding nodes in the graph.
+        :param idx: index or name of the class to delete
+        :return: none
+        """
+        nodes_to_remove = self.clear_idx(idx)
+
+        for node in nodes_to_remove:
+            self.G.remove_node(node)
+        try:
+            del self.people_idx[idx]
+        except KeyError:
+            pass
+        self.check_index(False)
+        self.node_idx = len(self.G.nodes.data())
+
+        self.adjust_indexes()
+
+        if isinstance(idx, int):
+            self.class_idx -= 1
+
+# ============================= COMPLETE CHINESE WHISPERS UTILITIES ===============================
+
+# removal of nodes or edges
     def check_consistency(self, node, length):
         if length < self.people_idx[self.G.node[node]['name']] / 10:
             self.people_idx[self.G.node[node]['name']] -= 1
@@ -36,15 +134,17 @@ class Cluster:
         for i in range(len(edges_to_remove)):
             self.G.remove_edge(edges_to_remove[i][0], edges_to_remove[i][1])
 
-    def delete_excess_class(self):
+# ========================== Functions to handle people != subgraphs ==============================
+
+# more identities than subgraphs
+    def choose_indexes(self, faces):
         components = list(nx.connected_components(self.G))
-        faces = list(self.people_idx.values())
         i = 0
+        j = 0
         while i < len(components) and len(components[i]) == faces[i]:
             i += 1
 
         if i < len(components):
-            j = 0
             if i == 0:
                 j = 1
 
@@ -52,17 +152,45 @@ class Cluster:
                 j += 1
                 if j == i:
                     j += 1
+            return i, j
+        else:
+            return -1, -1
 
-            if j == len(faces) or faces[i] < faces[j]:
-                nodes_to_remove = []
-                for k in range(self.node_idx):
-                    if self.G.node[k]['name'] == list(self.people_idx.keys())[i]:
-                        nodes_to_remove.append(k)
+    def select_excess_nodes(self, name):
+        nodes_to_remove = []
+
+        for k in range(self.node_idx):
+            if self.G.node[k]['name'] == name:
+                nodes_to_remove.append(k)
+
+        return nodes_to_remove
+
+    def select_excess_class(self, faces, i, j):
+        classes = list(self.people_idx.keys())
+
+        if j < len(faces):
+            if (isinstance(classes[i], str) and isinstance(classes[j], str)) or \
+                    (not isinstance(classes[i], str) and not isinstance(classes[j], str)):
+                if faces[i] > faces[j]:
+                    nodes_to_remove = self.select_excess_nodes(classes[j])
+                else:
+                    nodes_to_remove = self.select_excess_nodes(classes[i])
+            elif isinstance(classes[i], str):
+                nodes_to_remove = self.select_excess_nodes(classes[j])
             else:
-                nodes_to_remove = []
-                for k in range(self.node_idx):
-                    if self.G.node[k]['name'] == list(self.people_idx.keys())[j]:
-                        nodes_to_remove.append(k)
+                nodes_to_remove = self.select_excess_nodes(classes[i])
+        else:
+            nodes_to_remove = self.select_excess_nodes(classes[i])
+
+        return nodes_to_remove
+
+    def delete_excess_class(self):
+        faces = list(self.people_idx.values())
+
+        i, j = self.choose_indexes(faces)
+
+        if i > 0:
+            nodes_to_remove = self.select_excess_class(faces, i, j)
             for node in nodes_to_remove:
                 self.people_idx[self.G.node[node]['name']] -= 1
                 self.G.remove_node(node)
@@ -70,6 +198,7 @@ class Cluster:
             self.adjust_indexes()
             self.node_idx = len(self.G.nodes.data())
 
+# more subgraphs than identities
     def delete_subgraph(self, nh):
         subgraph_len_min = self.max_faces
         component_to_delete = 0
@@ -78,7 +207,7 @@ class Cluster:
                 if len(nx.node_connected_component(self.G, nodes)) < subgraph_len_min:
                     subgraph_len_min = len(nx.node_connected_component(self.G, nodes))
                     component_to_delete = nodes
-            # neighs.pop(component_to_delete)
+
             for node in nx.node_connected_component(self.G, component_to_delete):
                 try:
                     nh.remove(node)
@@ -96,6 +225,8 @@ class Cluster:
         elif len(self.people_idx) > nx.number_connected_components(self.G):
             self.delete_excess_class()
         return True
+
+# ============================ Functions to perform chinese whispers ==============================
 
     def find_max_class(self, classes, shuffled_nodes, index):
         # find the class with the highest edge weight sum
@@ -143,6 +274,14 @@ class Cluster:
 
             i += 1
 
+    def clear_people(self):
+        empty_index = [x for x in self.people_idx if not self.people_idx[x]]
+
+        for person in empty_index:
+            self.clear_class(person)
+
+        return empty_index
+
     @timing
     def chinese_whispers(self):
         iterations = 10
@@ -161,32 +300,7 @@ class Cluster:
 
         return deleted
 
-    def check_distances(self):
-        for i in range(self.node_idx):
-            distance = dcos(self.G.node[i]['desc'], self.G.node[self.node_idx]['desc'])
-            # distance = abs(self.G.node[i]['desc'] - self.G.node[self.node_idx]['desc'])
-            if distance <= self.threshold:
-                self.G.add_edge(i, self.node_idx, weight = distance)
-
-    def get_distance(self, node0, node1):
-        return dcos(self.G.node[node0]['desc'], self.G.node[node1]['desc'])
-
-    def clear_people(self):
-        empty_index = [x for x in self.people_idx if not self.people_idx[x]]
-
-        for person in empty_index:
-            self.clear_class(person)
-
-        return empty_index
-
-    def add_name(self, name):
-        if name not in self.names:
-            self.names.append(name)
-            self.check_index(True)
-            self.check_names()
-            self.class_idx -= 1
-        else:
-            print('Name already in list, use a new one')
+# ==================================== END OF EXECUTION FUNCTIONS ==================================
 
     def check_names(self):
         for i in range(self.node_idx):
@@ -197,71 +311,41 @@ class Cluster:
                 else:
                     self.G.node[i]['name'] -= 1
 
-    def check_index(self, newname):
-        if newname:
-            try:
-                self.people_idx[self.names[-1]] = self.people_idx.pop(0)
-            except KeyError:
-                pass
-
-        new_indexes = []
-        for key in self.people_idx.items():
-            if isinstance(key[0], int):
-                new_indexes.append(key)
-        for indexes in new_indexes:
-            if indexes[0] != 0 and indexes[0] - 1 not in self.people_idx:
-                self.people_idx.pop(indexes[0])
-                self.people_idx[indexes[0]-1] = indexes[1]
-
-    def clear_idx(self, idx):
-        node_to_remove = []
-        for i in range(self.node_idx):
-            if self.G.node[i]['name'] == idx:
-                node_to_remove.append(i)
-            elif isinstance(idx, int):
-                if isinstance(self.G.node[i]['name'], int):
-                    try:
-                        if self.G.node[i]['name'] > idx:
-                            self.G.node[i]['name'] = int(self.G.node[i]['name']) - 1
-                    except ValueError:
-                        pass
-        return node_to_remove
-
-    def adjust_indexes(self):
-        i = 0
-        nodes = []
-        for node in self.G.nodes:
-            if node != i:
-                nodes.append((i, node))
-            i += 1
-
-        for node in nodes:
-            self.G.add_node(node[0], name = self.G.node[node[1]]['name'], desc = self.G.node[node[1]]['desc'])
-            new_edges = []
-            for edge in self.G.edges:
-                if edge[0] == node[1]:
-                    new_edges.append((node[0], edge[1], {'weight': self.G[edge[0]][edge[1]]['weight']}))
-                elif edge[1] == node[1]:
-                    new_edges.append((edge[0], node[0], {'weight': self.G[edge[0]][edge[1]]['weight']}))
-            self.G.add_edges_from(new_edges)
-            self.G.remove_node(node[1])
-
-    def clear_class(self, idx):
-        nodes_to_remove = self.clear_idx(idx)
-
-        for node in nodes_to_remove:
-            self.G.remove_node(node)
-        try:
-            del self.people_idx[idx]
-        except KeyError:
-            pass
-        self.check_index(False)
-        self.node_idx = len(self.G.nodes.data())
-
-        self.adjust_indexes()
-
-        if isinstance(idx, int):
+    def add_name(self, name):
+        if name not in self.names:
+            self.names.append(name)
+            self.check_index(True)
+            self.check_names()
             self.class_idx -= 1
+        else:
+            print('Name already in list, use a new one')
+
+    def plot_graph(self):
+        from utils import colors
+
+        pos = nx.spring_layout(self.G)
+        color_list = colors(len(self.people_idx))
+        plt.title("Connected components in the Chinese Whispers Graph")
+        wcc = nx.connected_component_subgraphs(self.G)
+        lab = ["Person {}".format(x) for x in self.people_idx.keys()]
+        for index, sg in enumerate(wcc):
+            nx.draw_networkx(sg, pos=pos, edge_color=color_list[index], node_color=color_list[index])
+        for i in range(len(lab)):
+            plt.scatter([], [], c=color_list[i], alpha=0.3, s=100, label=lab[i])
+        plt.legend(title="Clusters")
+        plt.show()
+
+# ================================= COMMON EXECUTION FUNCTIONS ====================================
+
+    def check_distances(self):
+        for i in range(self.node_idx):
+            distance = dcos(self.G.node[i]['desc'], self.G.node[self.node_idx]['desc'])
+            # distance = abs(self.G.node[i]['desc'] - self.G.node[self.node_idx]['desc'])
+            if distance <= self.threshold:
+                self.G.add_edge(i, self.node_idx, weight = distance)
+
+    def get_distance(self, node0, node1):
+        return dcos(self.G.node[node0]['desc'], self.G.node[node1]['desc'])
 
     def clear_old(self, class_idx):
         i = 0
@@ -303,19 +387,3 @@ class Cluster:
 
         self.class_idx += 1
         self.node_idx += 1
-
-    # preceding problem makes a indexerror in color_list
-    def plot_graph(self):
-        from utils import colors
-
-        pos = nx.spring_layout(self.G)
-        color_list = colors(len(self.people_idx))
-        plt.title("Connected components in the Chinese Whispers Graph")
-        wcc = nx.connected_component_subgraphs(self.G)
-        lab = ["Person {}".format(x) for x in self.people_idx.keys()]
-        for index, sg in enumerate(wcc):
-            nx.draw_networkx(sg, pos=pos, edge_color=color_list[index], node_color=color_list[index])
-        for i in range(len(lab)):
-            plt.scatter([], [], c=color_list[i], alpha=0.3, s=100, label=lab[i])
-        plt.legend(title="Clusters")
-        plt.show()
