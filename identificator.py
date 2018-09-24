@@ -159,6 +159,9 @@ class Identificator:
     def loop_frames(self):
         old_len_faces = 0
         checked_faces = 0
+        fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+
+        out = cv2.VideoWriter('output.avi', fourcc, 20.0, (640, 360))
 
         while True:
             frame, faces, checked_faces = self.check_faces(old_len_faces, checked_faces)
@@ -173,11 +176,13 @@ class Identificator:
                 except TypeError:
                     pass
 
+            out.write(frame)
             cv2.imshow('Video', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             old_len_faces = len(faces)
 
+        out.release()
         self.close_video()
 
     def close_video(self):

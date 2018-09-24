@@ -3,7 +3,6 @@ from random import shuffle
 from scipy.spatial.distance import cosine as dcos
 import matplotlib.pyplot as plt
 from utils import timing
-import dlib
 
 
 class Cluster:
@@ -116,7 +115,7 @@ class Cluster:
 
 # removal of nodes or edges
     def check_consistency(self, node, length):
-        if length < self.people_idx[self.G.node[node]['name']] / 10:
+        if length < self.people_idx[self.G.node[node]['name']] / 5:
             self.people_idx[self.G.node[node]['name']] -= 1
             self.G.remove_node(node)
             self.adjust_indexes()
@@ -218,9 +217,8 @@ class Cluster:
 
             self.clear_class('delete')
 
-    def check_subgraphs(self, neighs):
+    def check_subgraphs(self, nh):
         if len(self.people_idx) < nx.number_connected_components(self.G):
-            nh = list(neighs)
             self.delete_subgraph(nh)
         elif len(self.people_idx) > nx.number_connected_components(self.G):
             self.delete_excess_class()
@@ -268,9 +266,25 @@ class Cluster:
                 if self.check_consistency(shuffled_nodes[i], len(neighs)):
                     self.clear_wrong_neighs(shuffled_nodes[i], neighs)
                 else:
-                    g_modified = self.check_subgraphs(neighs)
+                    print(list(neighs))
+                    print(shuffled_nodes[i])
+                    nh = list(neighs)
+                    for j in range(len(nh)):
+                        if nh[j] > shuffled_nodes[i]:
+                            nh[j] -= 1
+
+                    print(nh)
+                    g_modified = self.check_subgraphs(nh)
             else:
-                g_modified = self.check_subgraphs(neighs)
+                print(list(neighs))
+                print(shuffled_nodes[i])
+                nh = list(neighs)
+                for j in range(len(nh)):
+                    if nh[j] > shuffled_nodes[i]:
+                        nh[j] -= 1
+
+                print(nh)
+                g_modified = self.check_subgraphs(nh)
 
             i += 1
 
