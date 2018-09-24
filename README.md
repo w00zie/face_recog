@@ -46,9 +46,14 @@ Two strings are shown on top of every frame :
 *	Last seen/recognized : {} -> If there is no previous knowledge provided this string represents the last different person who've been recognized (new person 0, new person 1...), besides it displays the name of the previously-tagged person recognized.
 
 
-# DEMO #
+# DEMOS #
 
-*	First we ran `main.py` with our default configuration. No previous knowledge provided.  
+## DEFAULT MODE ##
+
+The _default mode_ is intended for machines that cannot handle a heavy load. Since running a `predict()` may result in a noticeable lag, this _workload-saving_ mode is a compromise between live recognition and mere detection.
+Identities are displayed on top of every frame, pointing out the last detected/recognized person.
+
+*	First we ran `main.py` with our `default` configuration. No previous knowledge provided.  
 
 
 ![picture](images/out_primo.gif)
@@ -70,3 +75,30 @@ Two strings are shown on top of every frame :
 
 ![picture](images/out_secondo.gif)
 
+## PERFORMANCE MODE ##
+
+The main structure is the same as the _default mode_, however it is intended for machines that can handle the heavier load of making many more predicts per frame. Identities, in fact, are predicted and displayed over every face present in every frame.  
+
+*	We ran `main.py` with our `performance default` config. No previous knowledge provided.  
+
+![picture](images/before_perf.gif)  
+
+*	We were shown the graph every 100 nodes. You can notice a predict error near the end of the previous gif, fixed by an automatic run of the [Chinese Whispers algorith](https://en.wikipedia.org/wiki/Chinese_Whispers_(clustering_method))
+![picture](images/Figure_3.png)
+
+*	Then we were asked to insert the names relative to the detected faces, named *guy_0* and *guy_1* respectively.  
+
+![picture](images/guy_0.PNG)  
+![picture](images/guy_1.PNG)  
+![picture](images/Figure_3-1.png)  
+
+
+*	On the next execution the previously labelled people are now recognized and tagged.  
+
+![picture](images/after_perf.gif)  
+
+*	Enriching the clusters in the graph prediction after prediction
+
+![picture](images/Figure_3-3.png) 
+
+[video credit](https://www.youtube.com/watch?v=xHGtlVFi2VI)
